@@ -22,7 +22,6 @@
 #include "igtlMultiThreader.h"
 #include "ibisapi.h"
 #include "toolplugininterface.h"
-#include "vtkqtrenderwindow.h"
 
 //User defined parameters to tweak:
 #define SEND_WIDTH 800
@@ -103,7 +102,6 @@ public:
     View * view;
     vtkRenderer * renderer;
     vtkRenderWindow * window;
-    vtkQtRenderWindow * win2;
 
     ushort port_video = VIDEO_PORT;
     ushort port_commands = COMMANDS_PORT;
