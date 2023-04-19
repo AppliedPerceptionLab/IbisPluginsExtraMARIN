@@ -399,7 +399,7 @@ bool CommandsProcessingPluginInterface::ExecuteRotateView( double x, double y, d
 //    if( zoom_factor > 0 + EPSILON ){
 //        cam->Zoom( zoom_factor );
 //    }
-    view->Render();
+    view->NotifyNeedRender();
     return true;
 }
 

@@ -11,7 +11,7 @@
 #include <vtkPNGWriter.h>
 #include <libyuv.h>
 #include <QPainter>
-#include <QtNetwork>
+#include <QtNetwork\QNetworkInterface>
 /////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////   SEND_THREAD   ////////////////////////////////////////
 static void * vtkOpenIGTLSenderSendThread( vtkMultiThreader::ThreadInfo * data )
@@ -25,7 +25,7 @@ static void * vtkOpenIGTLSenderSendThread( vtkMultiThreader::ThreadInfo * data )
     while(true){
         if ( !self->init_done || !self->connected_video || ( !self->something_to_send && !self->newTrackingMessage ) ){
             //TODO: is this value too small?
-            usleep(5);
+            igtl::Sleep(1);
             continue;
         }
         //if there is an update on the tracker status:
@@ -210,6 +210,10 @@ void OpenIGTLSenderPluginInterface::OnUpdate()
             int * dims = img_dat->GetDimensions();
             window_width = dims[0];
             window_height = dims[1];
+            if (window_width == 0 || window_height == 0) {
+                std::cout << "[OpenIGTLSenderPluginInterface::OnUpdate] No window to send" << std::endl;
+                return;
+            }
             uchar * pixels = static_cast<uchar*>( img_dat->GetScalarPointer() );
             window_image = QImage( pixels,
                                        window_width,
@@ -392,7 +396,7 @@ void OpenIGTLSenderPluginInterface::connectCommands()
         if( s < 0 ){
             std::cerr << "[OpenIGTLSenderPlugin] Could not create a TCP server socket for status updates. This typically means that the socket from a previously running instance of IBIS hasn't yet been closed. I will wait a few seconds and try again." << std::endl;
             //5 seconds should do it I presume
-            usleep(5000000);
+            igtl::Sleep(5000);
             return;
         }else{
             commands_socket_created = true;
