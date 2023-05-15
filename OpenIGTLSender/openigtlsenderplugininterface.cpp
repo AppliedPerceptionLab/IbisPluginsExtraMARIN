@@ -158,8 +158,6 @@ QWidget * OpenIGTLSenderPluginInterface::CreateTab()
     windowToImageFilter->SetInputBufferTypeToRGBA();
     windowToImageFilter->ReadFrontBufferOn();
     windowToImageFilter->Modified();
-    ownAddress = IBIS_ADDRESS;
-    std::cout << "[Sender] Local address is " << ownAddress.toStdString() << std::endl;
     activate();
     videoServerSocket->SetPortNumber( port_video );
     //default value is set in widget:
@@ -364,7 +362,7 @@ void OpenIGTLSenderPluginInterface::connectVideo()
         if( s < 0 ){
             std::cerr << "[OpenIGTLSenderPlugin] Could not create a UDP server socket for video." << std::endl;
         }else{
-            int clientID = videoServerSocket->AddClient( MARIN_ADDRESS, port_video, 0 );
+            int clientID = videoServerSocket->AddClient( CLIENT_ADDRESS, port_video, 0 );
             std::cout << "[Sender] added client: " << clientID << std::endl;
             std::cout << "[OpenIGTLSenderPlugin] Created a UDP server socket for video." << std::endl;
             video_socket_created = true;

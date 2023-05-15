@@ -33,9 +33,7 @@
 
 #define CONFIG_FILE_PATH "/Path/To/OH264Config.cfg"
 
-#define MARIN_ADDRESS "192.168.0.8"
-
-#define IBIS_ADDRESS "192.168.0.104"
+#define CLIENT_ADDRESS "192.168.0.8"
 
 #define DEVICE_NAME "IBIS"
 #define VIDEO_PORT 18946
@@ -109,7 +107,7 @@ public:
     ushort port_video = VIDEO_PORT;
     ushort port_commands = COMMANDS_PORT;
     int version = 4;
-    QString ownAddress = "127.0.0.1";
+    QString client_address = CLIENT_ADDRESS;
     uint connection_wait_time = 100000000;
     igtl::TimeStamp::Pointer Timer;
 
