@@ -35,6 +35,9 @@
 
 #define MARIN_ADDRESS "192.168.0.8"
 
+#define IBIS_ADDRESS "192.168.0.104"
+
+#define DEVICE_NAME "IBIS"
 #define VIDEO_PORT 18946
 #define COMMANDS_PORT 18949
 
@@ -112,7 +115,6 @@ public:
 
     igtl::UDPServerSocket::Pointer videoServerSocket;
     igtl::MessageRTPWrapper::Pointer rtpWrapper;
-    igtl::MultiThreader::Pointer threader;
     igtl::MutexLock::Pointer glock;
 
     igtl::Socket::Pointer socket;
@@ -125,12 +127,10 @@ public:
     bool video_socket_created = false;
     bool commands_socket_created = false;
 
-    vtkMultiThreader * ConnectThreader;
+    vtkMultiThreader * Threader;
     int ConnectThreadId;
-    vtkMultiThreader * SendThreader;
     int SendThreadId;
-    vtkMultiThreader * BroadcastThreader;
-    int BroadcastThreadId;
+    bool sendTerminated = false;
 
     uchar * buffer1;
     //TODO: add a second buffer

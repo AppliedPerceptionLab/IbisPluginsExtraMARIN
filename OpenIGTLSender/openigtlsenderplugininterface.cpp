@@ -22,7 +22,7 @@ static void * vtkOpenIGTLSenderSendThread( vtkMultiThreader::ThreadInfo * data )
     igtl::VideoMessage::Pointer videoMessageSend = igtl::VideoMessage::New();
     uchar * converted = new uchar[ SEND_WIDTH * SEND_HEIGHT * 3 / 2];
     std::cout << "[SendThread] Created send thread." << std::endl;
-    while(true){
+    while( !(self->sendTerminated) ) {
         if ( !self->init_done || !self->connected_video || ( !self->something_to_send && !self->newTrackingMessage ) ){
             //TODO: is this value too small?
             igtl::Sleep(1);
@@ -34,8 +34,8 @@ static void * vtkOpenIGTLSenderSendThread( vtkMultiThreader::ThreadInfo * data )
                 self->connectCommands();
             }else if( self->connected_commands ){
                 statusMsg = igtl::StatusMessage::New();
-                statusMsg->SetDeviceName("IBIS");
-                statusMsg->SetHeaderVersion(IGTL_HEADER_VERSION_2);
+                statusMsg->SetDeviceName( DEVICE_NAME );
+                statusMsg->SetHeaderVersion( IGTL_HEADER_VERSION_2 );
                 if ( self->trackingOK ){
                     statusMsg->SetCode(igtl::StatusMessage::STATUS_OK);
                     statusMsg->SetSubCode(128);
@@ -61,7 +61,7 @@ static void * vtkOpenIGTLSenderSendThread( vtkMultiThreader::ThreadInfo * data )
         if ( self->something_to_send ){
             videoMessageSend = igtl::VideoMessage::New();
             videoMessageSend->SetHeaderVersion( IGTL_HEADER_VERSION_2 );
-            videoMessageSend->SetDeviceName("IBIS");
+            videoMessageSend->SetDeviceName( DEVICE_NAME );
             SourcePicture * srcPic = new SourcePicture();
             srcPic->colorFormat = FormatI420;
             srcPic->picWidth = SEND_WIDTH;
@@ -81,13 +81,13 @@ static void * vtkOpenIGTLSenderSendThread( vtkMultiThreader::ThreadInfo * data )
             //encode frame:
             int iEncFrames = self->encoder->EncodeSingleFrameIntoVideoMSG( srcPic, videoMessageSend, false );
             uchar * frame = new uchar[videoMessageSend->GetBufferSize()];
-            memcpy( frame, videoMessageSend->GetPackPointer(), videoMessageSend->GetBufferSize());
+            std::memcpy( frame, videoMessageSend->GetPackPointer(), videoMessageSend->GetBufferSize());
             self->rtpWrapper->WrapMessageAndSend( self->videoServerSocket, frame, videoMessageSend->GetBufferSize() );
             delete[] frame;
             self->something_to_send = false;
         }
     }
-    std::cerr << "[Sender] Send thread done. THIS SHOULD NEVER PRINT." << std::endl << std::flush;
+    std::cerr << "[Sender] Send thread done." << std::endl << std::flush;
     return nullptr;
 }
 
@@ -116,13 +116,10 @@ OpenIGTLSenderPluginInterface::OpenIGTLSenderPluginInterface()
 {
     videoServerSocket = igtl::UDPServerSocket::New();
     rtpWrapper = igtl::MessageRTPWrapper::New();
-    threader = igtl::MultiThreader::New();
+    Threader = vtkMultiThreader::New();
     glock = igtl::MutexLock::New();
     socket = igtl::Socket::New();
     commandsServerSocket = igtl::ServerSocket::New();
-    ConnectThreader = vtkMultiThreader::New();
-    SendThreader = vtkMultiThreader::New();
-    BroadcastThreader = vtkMultiThreader::New();
     buffer1 = new uchar[ SEND_WIDTH * SEND_HEIGHT * 4 ];
     //TODO: eventually add a second buffer?
 //    buffer2 = new uchar[ SEND_WIDTH * SEND_HEIGHT * 4 ];
@@ -153,7 +150,7 @@ QWidget * OpenIGTLSenderPluginInterface::CreateTab()
     connect( static_cast<QObject*>( api ), SIGNAL(IbisClockTick()), this, SLOT(OnUpdate()) );
     //TODO: This doesn't work at the moment. Needs to be fixed.
     connect( (QObject*)( this->GetIbisAPI()->GetHardwareModule() ), SIGNAL( ToggleQuadViewSignal( bool ) ), this, SLOT( ToggleQuadView( bool ) ) );
-    SendThreadId = this->SendThreader->SpawnThread( (vtkThreadFunctionType)&vtkOpenIGTLSenderSendThread, this );
+    SendThreadId = this->Threader->SpawnThread( (vtkThreadFunctionType)&vtkOpenIGTLSenderSendThread, this );
     connectCommands();
     //create vtk pipeline:
     windowToImageFilter = vtkSmartPointer<vtkWindowToImageFilter>::New();
@@ -161,21 +158,7 @@ QWidget * OpenIGTLSenderPluginInterface::CreateTab()
     windowToImageFilter->SetInputBufferTypeToRGBA();
     windowToImageFilter->ReadFrontBufferOn();
     windowToImageFilter->Modified();
-    QList<QHostAddress> addresses = QNetworkInterface::allAddresses();
-    QHostAddress address;
-    for( int i = 0; i < addresses.length(); i++ ) {
-        if ( addresses.at(i).protocol() == QAbstractSocket::IPv4Protocol && addresses.at(i) != QHostAddress(QHostAddress::LocalHost) ){
-            //ignore Atracsys:
-            if( addresses.at(i).toString().toStdString().compare("172.17.1.100") == 0 ){
-                continue;
-            }
-            std::cout << addresses.at(i).toString().toStdString() << std::endl;
-            //we take the first address that matches and leave (the second one is bluetooth usually)
-            address = addresses.at(i);
-//            break;
-        }
-    }
-    ownAddress = address.toString();
+    ownAddress = IBIS_ADDRESS;
     std::cout << "[Sender] Local address is " << ownAddress.toStdString() << std::endl;
     activate();
     videoServerSocket->SetPortNumber( port_video );
@@ -187,6 +170,9 @@ QWidget * OpenIGTLSenderPluginInterface::CreateTab()
 bool OpenIGTLSenderPluginInterface::WidgetAboutToClose()
 {
     disconnect( static_cast<QObject*>( this->GetIbisAPI() ), SIGNAL( IbisClockTick() ), this, SLOT( OnUpdate() ) );
+    sendTerminated = true;
+    this->Threader->TerminateThread(SendThreadId);
+    this->Threader->TerminateThread(ConnectThreadId);
     return true;
 }
 
@@ -402,7 +388,7 @@ void OpenIGTLSenderPluginInterface::connectCommands()
             commands_socket_created = true;
         }
     }
-    ConnectThreadId = ConnectThreader->SpawnThread( (vtkThreadFunctionType)&(vtkOpenIGTLSenderConnectThread), this );
+    ConnectThreadId = Threader->SpawnThread( (vtkThreadFunctionType)&(vtkOpenIGTLSenderConnectThread), this );
 }
 
 bool OpenIGTLSenderPluginInterface::set_dimensions( int w, int h )
