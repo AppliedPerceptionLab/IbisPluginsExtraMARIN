@@ -30,35 +30,39 @@ void OpenIGTLSenderWidget::UpdateUi()
     //TODO: This should all be cleaned.
     Q_ASSERT( m_pluginInterface );
     //connected video:
-    bool cv = m_pluginInterface->GetConnectedVideo();
+    bool cv = m_pluginInterface->GetSendingVideo();
     QString scv = "Connected video: " + QString::number(cv);
-    ui->connected_video->setText( scv );
+    ui->sending_video->setText( scv );
 
     //connected commands:
-    bool cc = m_pluginInterface->GetConnectedCommands();
+    bool cc = m_pluginInterface->GetConnectedStatus();
     QString scc = "Connected commands: " + QString::number(cc);
     ui->connected_commands->setText( scc );
 
     //connecting commands:
-    bool ccc = m_pluginInterface->GetConnectingCommands();
+    bool ccc = m_pluginInterface->GetConnectingStatus();
     QString sccc = "Connecting commands: " + QString::number(ccc);
     ui->connecting_commands->setText( sccc );
 
     //socket created commands:
-    bool bscc = m_pluginInterface->GetSocketCreatedCommands();
+    bool bscc = m_pluginInterface->GetSocketCreatedStatus();
     QString sscc = "Socket created commands: " + QString::number(bscc);
     ui->socket_created_commands->setText( sscc );
+
+    //client address:
+    std::string add = m_pluginInterface->GetClientAddress();
+    ui->clientAddress->setText( QString::fromStdString( add ) );
 }
 
-void OpenIGTLSenderWidget::on_activate_clicked(){
+void OpenIGTLSenderWidget::on_toggleVideo_clicked(){
     Q_ASSERT( m_pluginInterface );
-    m_pluginInterface->activate();
+    m_pluginInterface->toggleVideo();
     UpdateUi();
 }
 
-void OpenIGTLSenderWidget::on_stop_clicked(){
+void OpenIGTLSenderWidget::on_toggleStatus_clicked(){
     Q_ASSERT( m_pluginInterface );
-    m_pluginInterface->deactivate();
+    m_pluginInterface->toggleStatus();
     UpdateUi();
 }
 
@@ -79,6 +83,11 @@ void OpenIGTLSenderWidget::on_quadView_stateChanged( int state ){
     std::cout << "State is:" << state << std::endl;;
     m_pluginInterface->ToggleQuadView( (bool)state );
     UpdateUi();
+}
+
+void OpenIGTLSenderWidget::on_clientAddress_textChanged(QString s) {
+    Q_ASSERT(m_pluginInterface);
+    m_pluginInterface->SetClientAddress( s );
 }
 
 int OpenIGTLSenderWidget::getBandwidth(){

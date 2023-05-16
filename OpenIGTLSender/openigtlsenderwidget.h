@@ -28,11 +28,12 @@ public:
 private slots:
 
     void UpdateUi();
-    void on_activate_clicked();
-    void on_stop_clicked();
+    void on_toggleVideo_clicked();
+    void on_toggleStatus_clicked();
     void on_BandwidthSpinBox_valueChanged( int kbps );
     void on_offScreen_stateChanged( int state );
     void on_quadView_stateChanged( int state );
+    void on_clientAddress_textChanged( QString s );
 
 private:
 

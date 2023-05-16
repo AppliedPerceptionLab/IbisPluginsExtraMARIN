@@ -1,5 +1,4 @@
 #include "openigtlsenderplugininterface.h"
-#include "openigtlsenderwidget.h"
 #include "scenemanager.h"
 #include "pointerobject.h"
 #include "application.h"
@@ -22,17 +21,21 @@ static void * vtkOpenIGTLSenderSendThread( vtkMultiThreader::ThreadInfo * data )
     igtl::VideoMessage::Pointer videoMessageSend = igtl::VideoMessage::New();
     uchar * converted = new uchar[ SEND_WIDTH * SEND_HEIGHT * 3 / 2];
     std::cout << "[SendThread] Created send thread." << std::endl;
-    while( !(self->sendTerminated) ) {
-        if ( !self->init_done || !self->connected_video || ( !self->something_to_send && !self->newTrackingMessage ) ){
-            //TODO: is this value too small?
-            igtl::Sleep(1);
+    while( !(self->sendTerminated) ){
+        if ( !self->init_done ||
+             !self->connected_video ||
+             ( !self->sending_video && !self->sending_status ) ||
+             ( !self->video_to_send && !self->status_to_send ) ){
+            //simtodo: tune this value
+            igtl::Sleep(5);
             continue;
         }
-        //if there is an update on the tracker status:
-        if ( self->newTrackingMessage ){
-            if( !self->connected_commands && !self->connecting_commands ){
-                self->connectCommands();
-            }else if( self->connected_commands ){
+        //update on the tracker status:
+        if ( self->status_to_send && self->sending_status ){
+            if( !self->connected_status && !self->connecting_status ){
+                self->connectStatus();
+            }
+            if( self->connected_status ){
                 statusMsg = igtl::StatusMessage::New();
                 statusMsg->SetDeviceName( DEVICE_NAME );
                 statusMsg->SetHeaderVersion( IGTL_HEADER_VERSION_2 );
@@ -52,13 +55,14 @@ static void * vtkOpenIGTLSenderSendThread( vtkMultiThreader::ThreadInfo * data )
                 int send_result = self->socket->Send( statusMsg->GetPackPointer(), statusMsg->GetPackSize() );
                 if( send_result < 1 ){
                     std::cerr << "[OpenIGTLSenderPlugin] Status message couldn't be sent. Will try reconnecting and sending it again." << std::endl << std::flush;
-                    self->connected_commands = false;
+                    self->connected_status = false;
                 }else{
-                    self->newTrackingMessage = false;
+                    self->status_to_send = false;
                 }
             }
         }
-        if ( self->something_to_send ){
+        //update on the video:
+        if( self->video_to_send ){
             videoMessageSend = igtl::VideoMessage::New();
             videoMessageSend->SetHeaderVersion( IGTL_HEADER_VERSION_2 );
             videoMessageSend->SetDeviceName( DEVICE_NAME );
@@ -84,7 +88,7 @@ static void * vtkOpenIGTLSenderSendThread( vtkMultiThreader::ThreadInfo * data )
             std::memcpy( frame, videoMessageSend->GetPackPointer(), videoMessageSend->GetBufferSize());
             self->rtpWrapper->WrapMessageAndSend( self->videoServerSocket, frame, videoMessageSend->GetBufferSize() );
             delete[] frame;
-            self->something_to_send = false;
+            self->video_to_send = false;
         }
     }
     std::cerr << "[Sender] Send thread done." << std::endl << std::flush;
@@ -97,18 +101,18 @@ static void * vtkOpenIGTLSenderConnectThread( vtkMultiThreader::ThreadInfo * dat
 {
     //get pointer to self and initialize:
     OpenIGTLSenderPluginInterface * self = (OpenIGTLSenderPluginInterface *)(data->UserData);
-    self->connecting_commands = true;
-    self->socket = self->commandsServerSocket->WaitForConnection( self->connection_wait_time );
     if( self->socket.IsNull() ){
+    self->connecting_status = true;
+    self->socket = self->statusServerSocket->WaitForConnection(self->connection_wait_time);
         std::cout << "[OpenIGTLSenderPlugin] Couldn't connect in time. (TCP for commands)" << std::endl << std::flush;
-        self->connected_commands = false;
+        self->connected_status = false;
     }else{
         std::cout << "[OpenIGTLSenderPlugin] Connected for commands" << std::endl << std::flush;
         //TODO: need a timeout?
 //        self->socket->SetTimeout(3000);
-        self->connected_commands = true;
+        self->connected_status = true;
     }
-    self->connecting_commands = false;
+    self->connecting_status = false;
     return nullptr;
 }
 
@@ -119,12 +123,12 @@ OpenIGTLSenderPluginInterface::OpenIGTLSenderPluginInterface()
     Threader = vtkMultiThreader::New();
     glock = igtl::MutexLock::New();
     socket = igtl::Socket::New();
-    commandsServerSocket = igtl::ServerSocket::New();
+    statusServerSocket = igtl::ServerSocket::New();
     buffer1 = new uchar[ SEND_WIDTH * SEND_HEIGHT * 4 ];
     //TODO: eventually add a second buffer?
 //    buffer2 = new uchar[ SEND_WIDTH * SEND_HEIGHT * 4 ];
     H264StreamEncoder = new H264Encoder( CONFIG_FILE_PATH );
-    int r = commandsServerSocket->CreateServer( port_commands );
+    int r = statusServerSocket->CreateServer( port_status );
     if( r < 0 )
     {
         std::cerr << "[OpenIGTLSenderPlugin] Cannot create a server socket." << std::endl;
@@ -151,14 +155,14 @@ QWidget * OpenIGTLSenderPluginInterface::CreateTab()
     //TODO: This doesn't work at the moment. Needs to be fixed.
     connect( (QObject*)( this->GetIbisAPI()->GetHardwareModule() ), SIGNAL( ToggleQuadViewSignal( bool ) ), this, SLOT( ToggleQuadView( bool ) ) );
     SendThreadId = this->Threader->SpawnThread( (vtkThreadFunctionType)&vtkOpenIGTLSenderSendThread, this );
-    connectCommands();
+    connectStatus();
     //create vtk pipeline:
     windowToImageFilter = vtkSmartPointer<vtkWindowToImageFilter>::New();
     windowToImageFilter->SetInput( window );
     windowToImageFilter->SetInputBufferTypeToRGBA();
     windowToImageFilter->ReadFrontBufferOn();
     windowToImageFilter->Modified();
-    activate();
+    sending_video = SEND_VIDEO_ON_STARTUP;
     videoServerSocket->SetPortNumber( port_video );
     //default value is set in widget:
     changeBandwidth( widget->getBandwidth() );
@@ -178,13 +182,13 @@ bool OpenIGTLSenderPluginInterface::WidgetAboutToClose()
 void OpenIGTLSenderPluginInterface::OnUpdate()
 {
     widget->updateui();
-    if ( !activated ){
+    if( !sending_video ){
         return;
     }
-    else if ( !connected_video && activated ){
+    else if( !connected_video && sending_video ){
         connectVideo();
         return;
-    }else if ( connected_video && activated ){
+    }else if( connected_video && sending_video ){
         if( displayQuadFlag ){
             displayQuadView();
         } else {
@@ -225,7 +229,7 @@ void OpenIGTLSenderPluginInterface::OnUpdate()
             {
                 //TODO: add second buffer, or is that unnecessary?
                 memcpy( buffer1, final.bits(), SEND_WIDTH * SEND_HEIGHT * 4 );
-                something_to_send = true;
+                video_to_send = true;
             }else
             {
                 std::cerr << "[Sender] SKIPPED A FRAME" << std::endl;
@@ -288,7 +292,7 @@ void OpenIGTLSenderPluginInterface::displayQuadView()
     {
         //TODO: add second buffer
         memcpy( buffer1, combinedImage.bits(), SEND_WIDTH * SEND_HEIGHT * 4 );
-        something_to_send = true;
+        video_to_send = true;
     }else
     {
         std::cerr << "[Sender] SKIPPED A FRAME" << std::endl;
@@ -355,38 +359,40 @@ OpenIGTLSenderPluginInterface::~OpenIGTLSenderPluginInterface()
     //TODO
 }
 
-void OpenIGTLSenderPluginInterface::connectVideo()
-{
-    if ( !video_socket_created ){
+void OpenIGTLSenderPluginInterface::connectVideo() {
+    if( !video_socket_created ){
+        connected_video = false;
         int s = videoServerSocket->CreateUDPServer();
         if( s < 0 ){
             std::cerr << "[OpenIGTLSenderPlugin] Could not create a UDP server socket for video." << std::endl;
         }else{
-            int clientID = videoServerSocket->AddClient( CLIENT_ADDRESS, port_video, 0 );
-            std::cout << "[Sender] added client: " << clientID << std::endl;
-            std::cout << "[OpenIGTLSenderPlugin] Created a UDP server socket for video." << std::endl;
             video_socket_created = true;
         }
     }
-    //TODO: Remove this. This is useless...
-    video_socket_created = true;
-    connected_video = true;
-    //plus all the jazz in the widget interface
+    if( video_socket_created && !connected_video ){
+        clientID = videoServerSocket->AddClient( client_address.c_str(), port_video, 0 );
+        std::cout << "[Sender] added client: " << clientID << std::endl;
+        std::cout << "[OpenIGTLSenderPlugin] Created a UDP server socket for video." << std::endl;
+        connected_video = true;
+    }
+    widget->updateui();
 }
-void OpenIGTLSenderPluginInterface::connectCommands()
+
+void OpenIGTLSenderPluginInterface::connectStatus()
 {
-    if ( !commands_socket_created ){
-        int s = commandsServerSocket->CreateServer( port_commands );
+    if( !status_socket_created ){
+        int s = statusServerSocket->CreateServer( port_status );
         if( s < 0 ){
             std::cerr << "[OpenIGTLSenderPlugin] Could not create a TCP server socket for status updates. This typically means that the socket from a previously running instance of IBIS hasn't yet been closed. I will wait a few seconds and try again." << std::endl;
             //5 seconds should do it I presume
             igtl::Sleep(5000);
             return;
         }else{
-            commands_socket_created = true;
+            status_socket_created = true;
         }
     }
     ConnectThreadId = Threader->SpawnThread( (vtkThreadFunctionType)&(vtkOpenIGTLSenderConnectThread), this );
+    widget->updateui();
 }
 
 bool OpenIGTLSenderPluginInterface::set_dimensions( int w, int h )
@@ -420,11 +426,21 @@ void OpenIGTLSenderPluginInterface::checkTrackingState( IbisAPI * api)
     }
     //if something has changed:
     if ( allOK != trackingOK ){
-        newTrackingMessage = true;
+        status_to_send = true;
         if(allOK)
             std::cout << "[OpenIGTLSenderPlugin][DEBUG]: Camera tracking is back." << std::endl;
         else
             std::cout << "[OpenIGTLSenderPlugin][DEBUG]: Camera tracking lost." << std::endl;
     }
     trackingOK = allOK;
+}
+
+bool OpenIGTLSenderPluginInterface::SetClientAddress( QString s )
+{
+    //todo: sanitize input
+    std::cout << "[OpenIGTLSenderPlugin][SetClientAddress]: Changing client address to: " << s.toStdString() << std::endl;
+    client_address = s.toStdString();
+    connected_video = false;
+    videoServerSocket->DeleteClient( clientID );
+    return true;
 }

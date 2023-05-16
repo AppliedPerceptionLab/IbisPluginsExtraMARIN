@@ -2,12 +2,16 @@
 #define __OpenIGTLSenderPluginInterface_h_
 
 #include <QObject>
+
+#include "ibisapi.h"
+#include "toolplugininterface.h"
+#include "view.h"
 #include "vtkRenderWindow.h"
 #include "vtkRenderWindowInteractor.h"
-#include "view.h"
 #include "vtkRenderer.h"
 #include "vtkMultiThreader.h"
 #include "vtkImageFlip.h"
+
 #include "igtl_header.h"
 #include "igtlOSUtil.h"
 #include "VideoStreaming/igtlVideoMessage.h"
@@ -20,14 +24,15 @@
 #include "igtlUDPServerSocket.h"
 #include "igtlMessageRTPWrapper.h"
 #include "igtlMultiThreader.h"
-#include "ibisapi.h"
-#include "toolplugininterface.h"
+
+#include "openigtlsenderwidget.h"
 
 //User defined parameters to tweak:
 #define SEND_WIDTH 800
 #define SEND_HEIGHT 600
 #define SEND_ASPECT_RATIO (1.*SEND_WIDTH/SEND_HEIGHT)
 
+#define SEND_VIDEO_ON_STARTUP true
 #define IMAGE_SEND_MODE RC_BITRATE_MODE
 #define TARGET_BIT_RATE 16000000
 
@@ -37,7 +42,7 @@
 
 #define DEVICE_NAME "IBIS"
 #define VIDEO_PORT 18946
-#define COMMANDS_PORT 18949
+#define STATUS_PORT 18949
 
 #define MARIN_CAMERA_NAME_IN_CONFIG "iPad"
 
@@ -53,7 +58,6 @@ class vtkWindowToImageFilter;
 class vtkRendererSource;
 class vtkImageResize;
 class VideoStreamIGTLinkServer;
-class OpenIGTLSenderWidget;
 
 class OpenIGTLSenderPluginInterface : public ToolPluginInterface{
 
@@ -71,31 +75,37 @@ public:
     virtual QWidget * CreateTab();
     virtual bool WidgetAboutToClose();
     void connectVideo();
-    void connectCommands();
+    void connectStatus();
 
     bool set_dimensions( int w, int h );
-    void activate(){
-        activated = true;
+    void toggleVideo(){
+        sending_video = !sending_video;
+        widget->updateui();
     }
-    void deactivate(){
-        connected_video = false;
-        activated = false;
+    void toggleStatus(){
+        sending_status = !sending_status;
+        widget->updateui();
     }
     void changeBandwidth( int kbps );
     void setOffScreen( int state ){
         isOffScreen = (bool)state;
+        widget->updateui();
     }
     void ToggleQuadView( bool b ){
-            displayQuadFlag = b;
-        }
+        displayQuadFlag = b;
+        widget->updateui();
+    }
     void displayQuadView();
     QImage getMainView(MAIN_VIEW_TYPE viewType, IbisAPI * api, bool quadView);
     QImage getMainView(MAIN_VIEW_TYPE viewType, IbisAPI * api);
 
-    bool GetConnectedVideo() { return connected_video; }
-    bool GetConnectedCommands() { return connected_commands; }
-    bool GetConnectingCommands() { return connecting_commands; }
-    bool GetSocketCreatedCommands() { return commands_socket_created; }
+    bool GetSendingVideo() { return sending_video; }
+    bool GetConnectedStatus() { return connected_status; }
+    bool GetConnectingStatus() { return connecting_status; }
+    bool GetSocketCreatedStatus() { return status_socket_created; }
+
+    bool SetClientAddress( QString s );
+    std::string GetClientAddress() { return client_address; }
 
     OpenIGTLSenderWidget * widget;
 
@@ -105,9 +115,10 @@ public:
     vtkRenderWindow * window;
 
     ushort port_video = VIDEO_PORT;
-    ushort port_commands = COMMANDS_PORT;
+    ushort port_status = STATUS_PORT;
     int version = 4;
-    QString client_address = CLIENT_ADDRESS;
+    std::string client_address = CLIENT_ADDRESS;
+    int clientID = -1;
     uint connection_wait_time = 100000000;
     igtl::TimeStamp::Pointer Timer;
 
@@ -116,14 +127,16 @@ public:
     igtl::MutexLock::Pointer glock;
 
     igtl::Socket::Pointer socket;
-    igtl::ServerSocket::Pointer commandsServerSocket;
+    igtl::ServerSocket::Pointer statusServerSocket;
 
     bool connected_video = false;
-    bool connected_commands = false;
-    bool activated = false;
-    bool connecting_commands = false;
+    bool sending_video = false;
     bool video_socket_created = false;
-    bool commands_socket_created = false;
+
+    bool connecting_status = false;
+    bool connected_status = false;
+    bool sending_status = false;
+    bool status_socket_created = false;
 
     vtkMultiThreader * Threader;
     int ConnectThreadId;
@@ -146,10 +159,10 @@ public:
 
     GenericEncoder * encoder = nullptr;
     H264Encoder* H264StreamEncoder;
-    bool something_to_send = false;
+    bool video_to_send = false;
 
     bool trackingOK = false;
-    bool newTrackingMessage = false;
+    bool status_to_send = false;
     void checkTrackingState( IbisAPI * api );
 
     //TODO: not yet implemented
