@@ -65,6 +65,7 @@ static void * vtkOpenIGTLSenderSendThread( vtkMultiThreader::ThreadInfo * data )
             videoMessageSend = igtl::VideoMessage::New();
             videoMessageSend->SetHeaderVersion( IGTL_HEADER_VERSION_2 );
             videoMessageSend->SetDeviceName( DEVICE_NAME );
+            videoMessageSend->SetMessageID( self->currentMessageID++ );
             SourcePicture * srcPic = new SourcePicture();
             srcPic->colorFormat = FormatI420;
             srcPic->picWidth = SEND_WIDTH;

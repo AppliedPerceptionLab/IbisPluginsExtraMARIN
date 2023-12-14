@@ -121,6 +121,7 @@ public:
     int clientID = -1;
     uint connection_wait_time = 100000000;
     igtl::TimeStamp::Pointer Timer;
+    igtlUint32 currentMessageID = 0;
 
     igtl::UDPServerSocket::Pointer videoServerSocket;
     igtl::MessageRTPWrapper::Pointer rtpWrapper;
