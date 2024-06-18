@@ -33,8 +33,8 @@
 #define SEND_ASPECT_RATIO (1.*SEND_WIDTH/SEND_HEIGHT)
 
 #define SEND_VIDEO_ON_STARTUP true
-#define IMAGE_SEND_MODE RC_BITRATE_MODE
 #define TARGET_BIT_RATE 16000000
+#define IMAGE_SEND_MODE RC_TIMESTAMP_MODE
 
 #define CONFIG_FILE_PATH "/Path/To/OH264Config.cfg"
 
@@ -92,10 +92,11 @@ public:
         widget->updateui();
     }
     void ToggleQuadView( bool b ){
-        displayQuadFlag = b;
+        m_displayingQuadView = b;
         widget->updateui();
     }
     void displayQuadView();
+    bool isDisplayingQuadView(){ return m_displayingQuadView; }
     QImage getMainView(MAIN_VIEW_TYPE viewType, IbisAPI * api, bool quadView);
     QImage getMainView(MAIN_VIEW_TYPE viewType, IbisAPI * api);
 
@@ -107,6 +108,7 @@ public:
     bool SetClientAddress( QString s );
     std::string GetClientAddress() { return client_address; }
 
+    //TODO, clean all of this
     OpenIGTLSenderWidget * widget;
 
     IbisAPI * api;
@@ -169,13 +171,12 @@ public:
     //TODO: not yet implemented
     bool isOffScreen = true;
 
-    bool displayQuadFlag = false;
+private:
+    bool m_displayingQuadView = false;
 
 private slots:
+    void OnCommandReceived( igtlioCommand * command );
     void OnUpdate();
-    void ToggleQuadViewSlot( bool b ){
-        ToggleQuadView( b );
-    }
 
 signals:
     void Modified();

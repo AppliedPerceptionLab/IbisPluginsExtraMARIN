@@ -65,7 +65,6 @@ protected:
 
     Command ParseCommand( igtlioCommand * command );
     bool ExecuteCommand( Command c );
-    bool ExecuteToggleQuadView( bool b );
     bool ExecuteToggleAnatomy( int anatomy_index, bool toggle_visible );
     bool ExecuteNavigateSlice( int v, double x, double y );
     bool ExecuteReregisterAR( double dx, double dy, double angle );

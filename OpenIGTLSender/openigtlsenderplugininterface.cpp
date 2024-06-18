@@ -2,14 +2,20 @@
 #include "scenemanager.h"
 #include "pointerobject.h"
 #include "application.h"
+
+#include <igtlioConnector.h>
+
 #include <vtkWindowToImageFilter.h>
 #include <vtkRendererSource.h>
 #include <vtkOpenGLRenderer.h>
 #include <vtkImageResize.h>
 #include <vtkSmartPointer.h>
 #include <vtkPNGWriter.h>
+
 #include <libyuv.h>
+
 #include <QPainter>
+
 /////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////   SEND_THREAD   ////////////////////////////////////////
 static void * vtkOpenIGTLSenderSendThread( vtkMultiThreader::ThreadInfo * data )
@@ -151,9 +157,8 @@ QWidget * OpenIGTLSenderPluginInterface::CreateTab()
     window = renderer->GetRenderWindow();
     Timer = igtl::TimeStamp::New();
     //connect to ibis update:
-    connect( static_cast<QObject*>( api ), SIGNAL(IbisClockTick()), this, SLOT(OnUpdate()) );
-    //TODO: This doesn't work at the moment. Needs to be fixed.
-    connect( (QObject*)( this->GetIbisAPI()->GetHardwareModule() ), SIGNAL( ToggleQuadViewSignal( bool ) ), this, SLOT( ToggleQuadView( bool ) ) );
+    connect( api , SIGNAL(IbisClockTick()), this, SLOT( OnUpdate() ) );
+    connect( api, SIGNAL( NewCommandReceived( igtlioCommand * ) ), this, SLOT( OnCommandReceived( igtlioCommand * ) ) );
     SendThreadId = this->Threader->SpawnThread( (vtkThreadFunctionType)&vtkOpenIGTLSenderSendThread, this );
     connectStatus();
     //create vtk pipeline:
@@ -189,9 +194,9 @@ void OpenIGTLSenderPluginInterface::OnUpdate()
         connectVideo();
         return;
     }else if( connected_video && sending_video ){
-        if( displayQuadFlag ){
+        if( m_displayingQuadView ){
             displayQuadView();
-        } else {
+        }else{
             windowToImageFilter->Modified();
             windowToImageFilter->Update();
             img_dat = windowToImageFilter->GetOutput();
@@ -235,7 +240,7 @@ void OpenIGTLSenderPluginInterface::OnUpdate()
                 std::cerr << "[Sender] SKIPPED A FRAME" << std::endl;
             }
             init_done = true;
-            checkTrackingState(api);
+            checkTrackingState( api );
         }
     }
 }
@@ -349,8 +354,11 @@ QImage OpenIGTLSenderPluginInterface::getMainView( MAIN_VIEW_TYPE viewType, Ibis
 void OpenIGTLSenderPluginInterface::changeBandwidth( int kbps )
 {
     int netWorkBandWidthInBPS = kbps * 1000; //networkBandwidth is in kbps
-    int time = floor(8*RTP_PAYLOAD_LENGTH*1e9/netWorkBandWidthInBPS+ 1.0); // the needed time in nanosecond to send a RTP payload.
+    int time = floor( 8*RTP_PAYLOAD_LENGTH*1e9/netWorkBandWidthInBPS + 1.0 ); // the needed time in nanosecond to send a RTP payload.
     rtpWrapper->packetIntervalTime = time;
+    //set encoder target too:
+    H264StreamEncoder->SetRCTaregetBitRate( netWorkBandWidthInBPS );
+    std::cout << "[OpenIGTLSenderPluginInterface::changeBandwidth] Set RTPWrapper bandwidth to " << kbps << " kbps." << std::endl;
 }
 
 
@@ -443,4 +451,26 @@ bool OpenIGTLSenderPluginInterface::SetClientAddress( QString s )
     connected_video = false;
     videoServerSocket->DeleteClient( clientID );
     return true;
+}
+
+void OpenIGTLSenderPluginInterface::OnCommandReceived( igtlioCommand * command ){
+    if( command->GetName() == "ToggleQuadView" ){
+        bool toggled = false;
+        std::string commandContent = command->GetCommandContent();
+        QDomDocument qdd  = QDomDocument();
+        QByteArray qba = QByteArray( commandContent.c_str(), commandContent.length() );
+        if ( commandContent.length() > 0 ){
+            bool read_params_success = qdd.setContent(qba);
+            //this case would happen if the xml string isn't formated properly
+            if (!read_params_success){std::cout << "[OpenIGTLSenderPluginInterface::OnCommandReceived] couldn't read command message parameters." << std::endl;}
+            //check for known params:
+            QDomNodeList qdnl;
+            qdnl = qdd.elementsByTagName(QString("par4"));
+            toggled = static_cast<bool>( qdnl.at(0).toElement().text().toInt() );
+        }else{
+            std::cerr << "[OpenIGTLSenderPluginInterface::OnCommandReceived] Received a 0 length command." << std::endl;
+        }
+        ToggleQuadView( toggled );
+        std::cout << "[OpenIGTLSenderPluginInterface::OnCommandReceived] Toggled quadView to " << toggled << std::endl;
+    }
 }

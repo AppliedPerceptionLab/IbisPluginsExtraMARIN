@@ -52,7 +52,7 @@ QWidget * CommandsProcessingPluginInterface::CreateTab()
     api->GetAllUserObjects(uobjs);
     // Get callback when tracking updated
     connect( api, SIGNAL( IbisClockTick() ), this, SLOT( Update() ) );
-    connect( api->GetHardwareModule(), SIGNAL( NewCommandReceived( igtlioCommand * ) ), this, SLOT( OnCommandReceived( igtlioCommand * ) ) );
+    connect( api, SIGNAL( NewCommandReceived( igtlioCommand * ) ), this, SLOT( OnCommandReceived( igtlioCommand * ) ) );
     return widget;
 }
 
@@ -60,7 +60,7 @@ bool CommandsProcessingPluginInterface::WidgetAboutToClose()
 {
     // Remove update callback
     disconnect( api, SIGNAL(IbisClockTick()), this, SLOT(Update()) );
-    disconnect( api->GetHardwareModule(), SIGNAL( NewCommandReceived( igtlioCommand * ) ), this, SLOT( OnCommandReceived( igtlioCommand * ) ) );
+    disconnect( api, SIGNAL( NewCommandReceived( igtlioCommand * ) ), this, SLOT( OnCommandReceived( igtlioCommand * ) ) );
 
     return true;
 }
@@ -155,8 +155,8 @@ bool CommandsProcessingPluginInterface::ExecuteCommand( Command com )
             return ExecuteToggleAnatomy( com.param4, static_cast<bool>(com.param5) );
         }
         case ToggleQuadView: {
-            std::cout << "[CommandsProcessingPluginInterface::ExecuteCommand] Toggling QuadView to: " << com.param4 << std::endl;
-            return ExecuteToggleQuadView( static_cast<bool>( com.param4 ) );
+            std::cout << "[CommandsProcessingPluginInterface::ExecuteCommand] Toggling QuadView should now be handled in OIGTLSender plugin. Skipping. " << std::endl;
+            return false;
         }
         case NavigateSlice: {
             std::cout << "[CommandsProcessingPluginInterface::ExecuteCommand] Navigate slice (view " << com.param4 << "): " << com.param1 << ", " <<  com.param2 << std::endl;
@@ -194,25 +194,6 @@ bool CommandsProcessingPluginInterface::ExecuteCommand( Command com )
         }
     }
     return true;
-}
-
-//todo: this should be cleaner
-#include <../IbisPluginsExtraMARIN/OpenIGTLSender/openigtlsenderplugininterface.h>
-bool CommandsProcessingPluginInterface::ExecuteToggleQuadView( bool b )
-{
-    //get OIGTLSender plugin:
-    ToolPluginInterface * tpi = api->GetToolPluginByName("OpenIGTLSender");
-    if( tpi == nullptr ){
-        std::cerr << "[CommandsProcessingPluginInterface::ExecuteCommand] Can't find the OpenIGTLSender plugin. Don't know how to ToggleQuadView." << std::endl;
-        std::cerr << "[CommandsProcessingPluginInterface::ExecuteCommand] Is the plugin compiled? Activated?" << std::endl;
-        return false;
-    }else{
-        OpenIGTLSenderPluginInterface * OIGTLSPluginObj = (OpenIGTLSenderPluginInterface*)tpi;
-        OIGTLSPluginObj->ToggleQuadView( b );
-        return true;
-    }
-    //code shouldn't get to this point:
-    return false;
 }
 
 bool CommandsProcessingPluginInterface::ExecuteToggleAnatomy( int n, bool b )

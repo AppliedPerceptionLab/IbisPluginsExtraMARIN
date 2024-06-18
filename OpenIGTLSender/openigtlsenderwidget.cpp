@@ -52,6 +52,8 @@ void OpenIGTLSenderWidget::UpdateUi()
     //client address:
     std::string add = m_pluginInterface->GetClientAddress();
     ui->clientAddress->setText( QString::fromStdString( add ) );
+
+    ui->quadView->setChecked( m_pluginInterface->isDisplayingQuadView() );
 }
 
 void OpenIGTLSenderWidget::on_toggleVideo_clicked(){
