@@ -357,7 +357,7 @@ void OpenIGTLSenderPluginInterface::changeBandwidth( int kbps )
     int time = floor( 8*RTP_PAYLOAD_LENGTH*1e9/netWorkBandWidthInBPS + 1.0 ); // the needed time in nanosecond to send a RTP payload.
     rtpWrapper->packetIntervalTime = time;
     //set encoder target too:
-    H264StreamEncoder->SetRCTaregetBitRate( netWorkBandWidthInBPS );
+    H264StreamEncoder->SetRCTargetBitRate( netWorkBandWidthInBPS );
     std::cout << "[OpenIGTLSenderPluginInterface::changeBandwidth] Set RTPWrapper bandwidth to " << kbps << " kbps." << std::endl;
 }
 
@@ -411,7 +411,7 @@ bool OpenIGTLSenderPluginInterface::set_dimensions( int w, int h )
     H264StreamEncoder->SetSpeed( HIGH_COMPLEXITY );
     H264StreamEncoder->InitializeEncoder();
     H264StreamEncoder->SetRCMode( IMAGE_SEND_MODE );
-    H264StreamEncoder->SetRCTaregetBitRate( TARGET_BIT_RATE );
+    H264StreamEncoder->SetRCTargetBitRate( TARGET_BIT_RATE );
     encoder = H264StreamEncoder;
     return true;
 }
