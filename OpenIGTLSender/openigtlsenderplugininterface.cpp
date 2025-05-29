@@ -133,7 +133,8 @@ OpenIGTLSenderPluginInterface::OpenIGTLSenderPluginInterface()
     buffer1 = new uchar[ SEND_WIDTH * SEND_HEIGHT * 4 ];
     //TODO: eventually add a second buffer?
 //    buffer2 = new uchar[ SEND_WIDTH * SEND_HEIGHT * 4 ];
-    H264StreamEncoder = new H264Encoder( CONFIG_FILE_PATH );
+    std::string configPath = GetIbisAPI()->GetConfigDirectory().toStdString() + CONFIG_FILE;
+    H264StreamEncoder = new H264Encoder( const_cast<char*>( configPath.c_str() ) );
     int r = statusServerSocket->CreateServer( port_status );
     if( r < 0 )
     {
@@ -151,6 +152,7 @@ QWidget * OpenIGTLSenderPluginInterface::CreateTab()
     //init variables:
     widget = new OpenIGTLSenderWidget;
     widget->SetPluginInterface( this );
+    widget->setBandwidth( TARGET_BIT_RATE );
     api = this->GetIbisAPI();
     view = api->GetMain3DView();
     renderer = view->GetRenderer( 0 );
@@ -169,8 +171,6 @@ QWidget * OpenIGTLSenderPluginInterface::CreateTab()
     windowToImageFilter->Modified();
     sending_video = SEND_VIDEO_ON_STARTUP;
     videoServerSocket->SetPortNumber( port_video );
-    //default value is set in widget:
-    changeBandwidth( widget->getBandwidth() );
     return widget;
 }
 
@@ -411,7 +411,7 @@ bool OpenIGTLSenderPluginInterface::set_dimensions( int w, int h )
     H264StreamEncoder->SetSpeed( HIGH_COMPLEXITY );
     H264StreamEncoder->InitializeEncoder();
     H264StreamEncoder->SetRCMode( IMAGE_SEND_MODE );
-    H264StreamEncoder->SetRCTargetBitRate( TARGET_BIT_RATE );
+    changeBandwidth( TARGET_BIT_RATE );
     encoder = H264StreamEncoder;
     return true;
 }

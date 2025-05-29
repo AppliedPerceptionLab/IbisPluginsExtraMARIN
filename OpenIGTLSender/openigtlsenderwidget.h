@@ -23,6 +23,7 @@ public:
 
     void SetPluginInterface( OpenIGTLSenderPluginInterface * pi );
     int getBandwidth();
+    void setBandwidth( int bandwidth );
     void updateui();
 
 private slots:

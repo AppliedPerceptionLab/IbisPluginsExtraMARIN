@@ -95,3 +95,7 @@ void OpenIGTLSenderWidget::on_clientAddress_textChanged(QString s) {
 int OpenIGTLSenderWidget::getBandwidth(){
     return ui->BandwidthSpinBox->value();
 }
+
+void OpenIGTLSenderWidget::setBandwidth( int bandwidth ){
+    ui->BandwidthSpinBox->setValue( bandwidth );
+}

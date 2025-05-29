@@ -27,18 +27,23 @@
 
 #include "openigtlsenderwidget.h"
 
+//TODO: all of these parameters should go in a config to be placed in .ibis rather than here
+
 //User defined parameters to tweak:
 #define SEND_WIDTH 800
 #define SEND_HEIGHT 600
 #define SEND_ASPECT_RATIO (1.*SEND_WIDTH/SEND_HEIGHT)
 
 #define SEND_VIDEO_ON_STARTUP true
-#define TARGET_BIT_RATE 16000000
-#define IMAGE_SEND_MODE RC_TIMESTAMP_MODE
+// in kbps
+#define TARGET_BIT_RATE 10000
+// #define IMAGE_SEND_MODE RC_TIMESTAMP_MODE
+#define IMAGE_SEND_MODE RC_BITRATE_MODE
 
-#define CONFIG_FILE_PATH "/Path/To/OH264Config.cfg"
 
-#define CLIENT_ADDRESS "192.168.0.8"
+#define CONFIG_FILE "OH264Config.cfg"
+
+#define CLIENT_ADDRESS "192.168.3.174"
 
 #define DEVICE_NAME "IBIS"
 #define VIDEO_PORT 18946
