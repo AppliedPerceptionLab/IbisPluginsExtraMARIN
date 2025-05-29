@@ -1,5 +1,5 @@
-#ifndef __OpenIGTLSenderPluginInterface_h_
-#define __OpenIGTLSenderPluginInterface_h_
+#ifndef OpenIGTLSenderPluginInterface_h
+#define OpenIGTLSenderPluginInterface_h
 
 #include <QObject>
 
@@ -10,45 +10,30 @@
 #include "vtkRenderWindowInteractor.h"
 #include "vtkRenderer.h"
 #include "vtkMultiThreader.h"
-#include "vtkImageFlip.h"
 
-#include "igtl_header.h"
-#include "igtlOSUtil.h"
-#include "VideoStreaming/igtlVideoMessage.h"
-#include "igtlImageMessage.h"
 #include "igtlStatusMessage.h"
 #include "igtlServerSocket.h"
-#include "VideoStreaming/igtl_video.h"
 #include "VideoStreaming/igtlH264Encoder.h"
-#include "VideoStreaming/igtlH264Decoder.h"
 #include "igtlUDPServerSocket.h"
 #include "igtlMessageRTPWrapper.h"
-#include "igtlMultiThreader.h"
 
 #include "openigtlsenderwidget.h"
 
-//TODO: all of these parameters should go in a config to be placed in .ibis rather than here
-
 //User defined parameters to tweak:
+//TODO: all of these parameters should go in a config to be placed in .ibis rather than here
 #define SEND_WIDTH 800
 #define SEND_HEIGHT 600
 #define SEND_ASPECT_RATIO (1.*SEND_WIDTH/SEND_HEIGHT)
-
 #define SEND_VIDEO_ON_STARTUP true
 // in kbps
 #define TARGET_BIT_RATE 10000
-// #define IMAGE_SEND_MODE RC_TIMESTAMP_MODE
-#define IMAGE_SEND_MODE RC_BITRATE_MODE
-
-
+#define IMAGE_SEND_MODE RC_TIMESTAMP_MODE
+//#define IMAGE_SEND_MODE RC_BITRATE_MODE
 #define CONFIG_FILE "OH264Config.cfg"
-
 #define CLIENT_ADDRESS "192.168.3.174"
-
 #define DEVICE_NAME "IBIS"
 #define VIDEO_PORT 18946
 #define STATUS_PORT 18949
-
 #define MARIN_CAMERA_NAME_IN_CONFIG "iPad"
 
 using namespace igtl;

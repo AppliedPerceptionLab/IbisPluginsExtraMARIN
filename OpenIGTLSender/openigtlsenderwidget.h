@@ -1,5 +1,5 @@
-#ifndef __OpenIGTLSenderWidget_h_
-#define __OpenIGTLSenderWidget_h_
+#ifndef OpenIGTLSenderWidget_h
+#define OpenIGTLSenderWidget_h
 
 #include <QWidget>
 
