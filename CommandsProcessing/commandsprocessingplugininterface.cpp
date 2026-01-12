@@ -121,10 +121,10 @@ Command CommandsProcessingPluginInterface::ParseCommand( igtlioCommand * command
     std::string commandContent = command->GetCommandContent();
     QDomDocument qdd  = QDomDocument();
     QByteArray qba = QByteArray( commandContent.c_str(), commandContent.length() );
-    if ( commandContent.length() > 0 ){
-        bool read_params_success = qdd.setContent(qba);
+    if( commandContent.length() > 0 ){
+        QDomDocument::ParseResult parseResult = qdd.setContent( qba );
         //this case would happen if the xml string isn't formated properly
-        if (!read_params_success){std::cout << "[Receiver] couldn't read command message parameters." << std::endl;}
+        if ( !parseResult ){ std::cout << "[Receiver] couldn't read command message parameters." << std::endl; }
         //check for known params:
         QDomNodeList qdnl;
         qdnl = qdd.elementsByTagName(QString("par1"));
