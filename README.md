@@ -11,11 +11,39 @@ DISCLAIMER: MARIN and these plugins are a research tool: It is not intended for 
 
 ## Build Instructions:  
 
-This code should simply be checked out inside Ibis' root directory. These plugins should then be available in the CMake configuration, and can be added through variables IBIS_PLUGINS_BUILD_CommandsProcessing and IBIS_PLUGINS_BUILD_OpenIGTLinkSender. 
+This code should simply be checked out inside Ibis' root directory (Ibis picks up every `IbisPluginsExtra*/*/declare-plugin.cmake`). The plugins are then enabled with `IBIS_PLUGINS_BUILD_CommandsProcessing` and `IBIS_PLUGINS_BUILD_OpenIGTLSender`.
+
+### Build OpenIGTLSender with current Ibis
+
+Tested on Ubuntu with Qt 6, against [Bigadin/Ibis](https://codeberg.org/Bigadin/Ibis) (official Ibis main + the AR_SPINE fixes, see its `AR_SPINE.md`).
+
+1. System packages (Ubuntu): `build-essential cmake ninja-build git nasm qt6-base-dev qt6-base-dev-tools libqt6opengl6-dev qt6-declarative-dev libgl-dev libglu1-mesa-dev libxkbcommon-dev ocl-icd-opencl-dev opencl-headers`, plus the OpenCL driver of the GPU. Qt 6 only, not Qt 5. `nasm` is needed by OpenH264.
+2. Sources:
+   ```bash
+   git clone https://codeberg.org/Bigadin/Ibis.git src
+   cd src && git clone -b openigtl-jpeg-udp https://github.com/Bigadin/IbisPluginsExtraMARIN.git && cd ..
+   ```
+3. Superbuild (builds VTK 9.6.2, ITK 5.4.6, OpenIGTLink `fixes` with H.264, OpenIGTLinkIO `UDP_support`, Elastix, OpenCV, then Ibis):
+   ```bash
+   mkdir superbuild && cd superbuild
+   cmake -G Ninja ../src/IbisSuperBuild -DIBIS_BUILD_IGTL_HARDWARE_SUPPORT=ON -DIBIS_BUILD_OIGTL_WITH_H264=ON \
+         -DIBIS_BUILD_ELASTIX=ON -DIBIS_BUILD_OPENCV=ON
+   CMAKE_BUILD_PARALLEL_LEVEL=2 ninja -j1     # limits RAM use; 16 GB is not enough for a fully parallel build
+   ```
+4. The superbuild does not forward plugin options. Enable them in the inner Ibis build, then rebuild and install:
+   ```bash
+   cd Ibis
+   cmake . -DIBIS_PLUGINS_BUILD_GPU_RigidRegistration=ON -DIBIS_PLUGINS_BUILD_GPU_VolumeReconstruction=ON \
+           -DIBIS_PLUGINS_BUILD_PedicleScrewNavigation=ON -DIBIS_PLUGINS_BUILD_OpenIGTLSender=ON
+   ninja -j2 && ninja install      # -> ../Ibis-install/ibis
+   ```
+   GPU_RigidRegistration needs Elastix (`IBIS_BUILD_ELASTIX=ON` above), PedicleScrewNavigation needs both GPU plugins, and OpenIGTLSender needs PedicleScrewNavigation. None of these dependencies is enabled automatically.
 
 ### Dependencies  
-* [OpenIGTLink](https://github.com/openigtlink/OpenIGTLink) (or through the IGSIO_Hardware_Module in Ibis, which builds OpenIGTLink)  
-* [OpenIGTLinkIO](https://github.com/errollgarner/OpenIGTLinkIO/tree/UDP_support)
+* [OpenIGTLink](https://github.com/IbisNeuronav/OpenIGTLink/tree/fixes) built with H.264 (`IBIS_BUILD_OIGTL_WITH_H264=ON`): the sender still includes the H.264 encoder headers and reads `OH264Config.cfg` at start-up, although frames are now sent as JPEG.
+* [OpenIGTLinkIO](https://github.com/IbisNeuronav/OpenIGTLinkIO/tree/UDP_support) (built by the Ibis superbuild).
+* The Ibis plugin **PedicleScrewNavigation**.
+* libyuv is **no longer** required.
 
 ## OpenIGTLSender: streaming protocol (Unity tablet app only)
 
